@@ -7,6 +7,9 @@ class WCGDC_Checkout {
         add_action( 'woocommerce_checkout_update_order_meta', [ $this, 'save_order_meta' ] );
         add_action( 'woocommerce_admin_order_data_after_shipping_address', [ $this, 'display_order_meta' ] );
         
+        // Forzar recalcular envío al cambiar coordenadas
+        add_filter( 'woocommerce_cart_shipping_packages', [ $this, 'add_coordinates_to_package' ] );
+        
         // AJAX Endpoints
         add_action( 'wp_ajax_wcgdc_save_coordinates', [ $this, 'save_coordinates_ajax' ] );
         add_action( 'wp_ajax_nopriv_wcgdc_save_coordinates', [ $this, 'save_coordinates_ajax' ] );
@@ -71,20 +74,46 @@ class WCGDC_Checkout {
     }
 
     public function save_order_meta( $order_id ) {
+        $order = wc_get_order( $order_id );
+        if ( ! $order ) return;
+
+        $lat = WC()->session->get( 'wcgdc_lat' );
+        $lng = WC()->session->get( 'wcgdc_lng' );
+        $reference = isset( $_POST['wcgdc_reference'] ) ? sanitize_text_field( $_POST['wcgdc_reference'] ) : '';
+
+        $needs_save = false;
+
+        if ( ! empty( $lat ) ) {
+            $order->update_meta_data( '_wcgdc_lat', $lat );
+            WC()->session->__unset( 'wcgdc_lat' ); // Limpiar sesión
+            $needs_save = true;
+        }
+        if ( ! empty( $lng ) ) {
+            $order->update_meta_data( '_wcgdc_lng', $lng );
+            WC()->session->__unset( 'wcgdc_lng' ); // Limpiar sesión
+            $needs_save = true;
+        }
+        if ( ! empty( $reference ) ) {
+            $order->update_meta_data( '_wcgdc_reference', $reference );
+            $needs_save = true;
+        }
+
+        if ( $needs_save ) {
+            $order->save();
+        }
+    }
+
+    public function add_coordinates_to_package( $packages ) {
         $lat = WC()->session->get( 'wcgdc_lat' );
         $lng = WC()->session->get( 'wcgdc_lng' );
 
-        if ( ! empty( $lat ) ) {
-            update_post_meta( $order_id, '_wcgdc_lat', sanitize_text_field( $lat ) );
-            WC()->session->__unset( 'wcgdc_lat' ); // Limpiar sesión
+        if ( $lat && $lng ) {
+            foreach ( $packages as $i => $package ) {
+                $packages[ $i ]['destination']['wcgdc_lat'] = $lat;
+                $packages[ $i ]['destination']['wcgdc_lng'] = $lng;
+            }
         }
-        if ( ! empty( $lng ) ) {
-            update_post_meta( $order_id, '_wcgdc_lng', sanitize_text_field( $lng ) );
-            WC()->session->__unset( 'wcgdc_lng' ); // Limpiar sesión
-        }
-        if ( ! empty( $_POST['wcgdc_reference'] ) ) {
-            update_post_meta( $order_id, '_wcgdc_reference', sanitize_text_field( $_POST['wcgdc_reference'] ) );
-        }
+        return $packages;
     }
 
     public function save_coordinates_ajax() {
