@@ -24,3 +24,40 @@
 .wcgdc-reference-field {
     margin-bottom: 0 !important;
 }
+
+.wcgdc-address-search {
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.wcgdc-suggestions {
+    position: absolute;
+    z-index: 100001;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    max-height: 220px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    display: none;
+}
+
+.wcgdc-suggestions li {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 0.9em;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.wcgdc-suggestions li:last-child {
+    border-bottom: none;
+}
+
+.wcgdc-suggestions li:hover {
+    background: #f7f7f7;
+}

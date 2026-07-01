@@ -19,9 +19,11 @@ class WCGDC_Checkout {
 
     public function enqueue_scripts() {
         if ( is_checkout() && ! is_wc_endpoint_url( 'order-received' ) ) {
-            $provider = get_option( 'wcgdc_map_provider', 'leaflet' );
-            $store_lat = get_option( 'wcgdc_store_lat', '0' );
-            $store_lng = get_option( 'wcgdc_store_lng', '0' );
+            $provider    = get_option( 'wcgdc_map_provider', 'leaflet' );
+            $store_lat   = get_option( 'wcgdc_store_lat', '0' );
+            $store_lng   = get_option( 'wcgdc_store_lng', '0' );
+            $css_ver     = WCGDC_VERSION . '.' . filemtime( WCGDC_PLUGIN_DIR . 'assets/css/style.css' );
+            $js_ver      = WCGDC_VERSION . '.' . filemtime( WCGDC_PLUGIN_DIR . 'assets/js/checkout-map.js' );
 
             if ( $provider === 'google' ) {
                 $api_key = get_option( 'wcgdc_google_api_key' );
@@ -31,15 +33,16 @@ class WCGDC_Checkout {
                 wp_enqueue_script( 'leaflet-js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', [], null, true );
             }
 
-            wp_enqueue_style( 'wcgdc-style', WCGDC_PLUGIN_URL . 'assets/css/style.css' );
-            wp_enqueue_script( 'wcgdc-checkout', WCGDC_PLUGIN_URL . 'assets/js/checkout-map.js', ['jquery'], '1.0.0', true );
+            wp_enqueue_style( 'wcgdc-style', WCGDC_PLUGIN_URL . 'assets/css/style.css', [], $css_ver );
+            wp_enqueue_script( 'wcgdc-checkout', WCGDC_PLUGIN_URL . 'assets/js/checkout-map.js', ['jquery'], $js_ver, true );
 
             wp_localize_script( 'wcgdc-checkout', 'wcgdc_vars', [
-                'provider'  => $provider,
-                'store_lat' => $store_lat,
-                'store_lng' => $store_lng,
-                'ajax_url'  => admin_url( 'admin-ajax.php' ),
-                'nonce'     => wp_create_nonce( 'wcgdc_checkout_nonce' )
+                'provider'     => $provider,
+                'store_lat'    => $store_lat,
+                'store_lng'    => $store_lng,
+                'ajax_url'     => admin_url( 'admin-ajax.php' ),
+                'nonce'        => wp_create_nonce( 'wcgdc_checkout_nonce' ),
+                'country_code' => WC()->countries->get_base_country(),
             ] );
         }
     }
@@ -47,7 +50,16 @@ class WCGDC_Checkout {
     public function add_checkout_map() {
         echo '<div id="wcgdc-checkout-map-container">';
         echo '<h3>Ubicación de Entrega</h3>';
-        echo '<p>Mueve el marcador para seleccionar la ubicación exacta de entrega.</p>';
+        echo '<p>Mueve el marcador o haz clic en el mapa para seleccionar la ubicación exacta de entrega.</p>';
+
+        woocommerce_form_field( 'wcgdc_address_search', [
+            'type'        => 'text',
+            'class'       => ['form-row-wide', 'wcgdc-address-search'],
+            'label'       => 'Buscar dirección',
+            'placeholder' => 'Ej: Av. Corrientes 1234, Buenos Aires',
+            'required'    => false,
+        ], WC()->checkout->get_value( 'wcgdc_address_search' ) );
+
         echo '<div id="wcgdc-map"></div>';
         
         woocommerce_form_field( 'wcgdc_reference', [

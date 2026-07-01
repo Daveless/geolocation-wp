@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'WCGDC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WCGDC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'WCGDC_VERSION', '1.0.0' );
 
 // Include required files
 add_action( 'plugins_loaded', 'wcgdc_init' );
