@@ -6,6 +6,8 @@ class WCGDC_Checkout {
         add_action( 'woocommerce_checkout_process', [ $this, 'validate_checkout' ] );
         add_action( 'woocommerce_checkout_update_order_meta', [ $this, 'save_order_meta' ] );
         add_action( 'woocommerce_admin_order_data_after_shipping_address', [ $this, 'display_order_meta' ] );
+        add_action( 'woocommerce_thankyou', [ $this, 'clear_session_coordinates' ] );
+        add_action( 'woocommerce_payment_complete', [ $this, 'clear_session_coordinates' ] );
         
         // Forzar recalcular envío al cambiar coordenadas
         add_filter( 'woocommerce_cart_shipping_packages', [ $this, 'add_coordinates_to_package' ] );
@@ -62,10 +64,15 @@ class WCGDC_Checkout {
     }
 
     public function validate_checkout() {
-        $lat = WC()->session->get( 'wcgdc_lat' );
-        $lng = WC()->session->get( 'wcgdc_lng' );
+        $lat = isset( $_POST['wcgdc_lat'] ) ? sanitize_text_field( $_POST['wcgdc_lat'] ) : '';
+        $lng = isset( $_POST['wcgdc_lng'] ) ? sanitize_text_field( $_POST['wcgdc_lng'] ) : '';
 
-        if ( empty( $lat ) || empty( $lng ) ) {
+        if ( ( '' === $lat || '' === $lng ) && WC()->session && WC()->session->has_session() ) {
+            $lat = WC()->session->get( 'wcgdc_lat' );
+            $lng = WC()->session->get( 'wcgdc_lng' );
+        }
+
+        if ( ! is_numeric( $lat ) || ! is_numeric( $lng ) ) {
             wc_add_notice( 'Por favor, selecciona tu ubicación exacta en el mapa.', 'error' );
         }
         if ( empty( $_POST['wcgdc_reference'] ) ) {
@@ -85,12 +92,10 @@ class WCGDC_Checkout {
 
         if ( ! empty( $lat ) ) {
             $order->update_meta_data( '_wcgdc_lat', $lat );
-            WC()->session->__unset( 'wcgdc_lat' ); // Limpiar sesión
             $needs_save = true;
         }
         if ( ! empty( $lng ) ) {
             $order->update_meta_data( '_wcgdc_lng', $lng );
-            WC()->session->__unset( 'wcgdc_lng' ); // Limpiar sesión
             $needs_save = true;
         }
         if ( ! empty( $reference ) ) {
@@ -143,11 +148,18 @@ class WCGDC_Checkout {
         $lng = $order->get_meta( '_wcgdc_lng' );
         $ref = $order->get_meta( '_wcgdc_reference' );
         
-        if ( $lat && $lng ) {
-            echo '<p><strong>Ubicación Mapa:</strong> <a href="https://maps.google.com/?q='.$lat.','.$lng.'" target="_blank">Ver en Google Maps</a></p>';
+        if ( is_numeric( $lat ) && is_numeric( $lng ) ) {
+            echo '<p><strong>Ubicación Mapa:</strong> <a href="' . esc_url( "https://maps.google.com/?q=$lat,$lng" ) . '" target="_blank">Ver en Google Maps</a></p>';
         }
         if ( $ref ) {
             echo '<p><strong>Referencia Dirección:</strong> <br>' . esc_html( $ref ) . '</p>';
+        }
+    }
+
+    public function clear_session_coordinates() {
+        if ( WC()->session && WC()->session->has_session() ) {
+            WC()->session->__unset( 'wcgdc_lat' );
+            WC()->session->__unset( 'wcgdc_lng' );
         }
     }
 }

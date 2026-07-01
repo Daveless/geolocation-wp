@@ -1,7 +1,8 @@
 jQuery(function($){
     let map;
     let marker;
-    let isUpdating = false;
+    let pendingRequest = null;
+    let debounceTimer = null;
 
     function initMap() {
         const lat = parseFloat(wcgdc_vars.store_lat) || 0;
@@ -44,23 +45,27 @@ jQuery(function($){
         // Hidden inputs wcgdc_lat / wcgdc_lng remain empty.
     }
 
-    function updateCoordinates(lat, lng, triggerUpdate = true) {
+    function updateCoordinates(lat, lng) {
         $('#wcgdc_lat').val(lat);
         $('#wcgdc_lng').val(lng);
-        
-        if (triggerUpdate && !isUpdating) {
-            isUpdating = true;
-            
+
+        clearTimeout(debounceTimer);
+
+        debounceTimer = setTimeout(function () {
+            if (pendingRequest) {
+                pendingRequest.abort();
+                pendingRequest = null;
+            }
+
             const $reviewOrder = $('.woocommerce-checkout-review-order');
             if ($reviewOrder.length) {
-                // Bloquea visualmente solo la sección de totales y pago
                 $reviewOrder.addClass('processing').block({
                     message: null,
                     overlayCSS: { background: '#fff', opacity: 0.6 }
                 });
             }
 
-            $.ajax({
+            pendingRequest = $.ajax({
                 type: 'POST',
                 url: wcgdc_vars.ajax_url,
                 data: {
@@ -69,41 +74,44 @@ jQuery(function($){
                     lat: lat,
                     lng: lng
                 },
-                success: function(response) {
+                success: function () {
                     $('body').trigger('update_checkout');
                 },
-                complete: function() {
-                    isUpdating = false;
+                error: function (jqXHR) {
+                    if (jqXHR.statusText === 'abort') {
+                        return;
+                    }
+                    if (jqXHR.status === 403 || jqXHR.status === 400) {
+                        alert('Sesión expirada. Por favor, recarga la página.');
+                        return;
+                    }
+                    alert('No se pudo actualizar la ubicación. Intenta de nuevo.');
+                },
+                complete: function () {
+                    pendingRequest = null;
                     if ($reviewOrder.length) {
                         $reviewOrder.removeClass('processing').unblock();
                     }
                 }
             });
-        } else if (!triggerUpdate) {
-            // Si es la carga inicial, guarda silenciosamente sin triggerear el reload del checkout
-            $.post(wcgdc_vars.ajax_url, {
-                action: 'wcgdc_save_coordinates',
-                nonce: wcgdc_vars.nonce,
-                lat: lat,
-                lng: lng
-            });
-        }
+        }, 400);
     }
 
-    // Espera a que el SDK del mapa elegido esté cargado antes de inicializar
-    function checkMapLoaded() {
+    function checkMapLoaded(attempts) {
+        attempts = attempts || 0;
         if (wcgdc_vars.provider === 'google' && typeof google !== 'undefined' && google.maps) {
             initMap();
         } else if (wcgdc_vars.provider === 'leaflet' && typeof L !== 'undefined') {
             initMap();
+        } else if (attempts < 30) {
+            setTimeout(function () { checkMapLoaded(attempts + 1); }, 200);
         } else {
-            setTimeout(checkMapLoaded, 200);
+            $('#wcgdc-map').html('<p style="padding:20px;text-align:center;">No se pudo cargar el mapa. <a href="javascript:location.reload()">Recarga la página</a>.</p>');
         }
     }
 
-    // Wait for container to be ready
     if ($('#wcgdc-map').length) {
-        checkMapLoaded();
+        checkMapLoaded(0);
     }
     
     // Fix map rendering issues when fragments are updated
