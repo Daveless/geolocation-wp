@@ -39,8 +39,9 @@ jQuery(function($){
             });
         }
         
-        // Initial setup
-        updateCoordinates(lat, lng, false);
+        // Marker is shown at store location for reference only — no coordinates
+        // are saved until the user explicitly clicks on the map or drags the marker.
+        // Hidden inputs wcgdc_lat / wcgdc_lng remain empty.
     }
 
     function updateCoordinates(lat, lng, triggerUpdate = true) {
@@ -50,10 +51,10 @@ jQuery(function($){
         if (triggerUpdate && !isUpdating) {
             isUpdating = true;
             
-            const $form = $('form.checkout');
-            if ($form.length) {
-                // Bloquea visualmente el checkout mientras guarda las coordenadas
-                $form.addClass('processing').block({
+            const $reviewOrder = $('.woocommerce-checkout-review-order');
+            if ($reviewOrder.length) {
+                // Bloquea visualmente solo la sección de totales y pago
+                $reviewOrder.addClass('processing').block({
                     message: null,
                     overlayCSS: { background: '#fff', opacity: 0.6 }
                 });
@@ -73,8 +74,8 @@ jQuery(function($){
                 },
                 complete: function() {
                     isUpdating = false;
-                    if ($form.length) {
-                        $form.removeClass('processing').unblock();
+                    if ($reviewOrder.length) {
+                        $reviewOrder.removeClass('processing').unblock();
                     }
                 }
             });

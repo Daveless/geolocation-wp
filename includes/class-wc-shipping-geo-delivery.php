@@ -55,14 +55,19 @@ class WC_Shipping_Geo_Delivery extends WC_Shipping_Method {
     }
 
     public function calculate_shipping( $package = [] ) {
-        $lat = WC()->session->get( 'wcgdc_lat' );
-        $lng = WC()->session->get( 'wcgdc_lng' );
+        $lat = isset( $package['destination']['wcgdc_lat'] ) ? $package['destination']['wcgdc_lat'] : null;
+        $lng = isset( $package['destination']['wcgdc_lng'] ) ? $package['destination']['wcgdc_lng'] : null;
+
+        if ( ( ! $lat || ! $lng ) && WC()->session && WC()->session->has_session() ) {
+            $lat = WC()->session->get( 'wcgdc_lat' );
+            $lng = WC()->session->get( 'wcgdc_lng' );
+        }
 
         $store_lat = get_option( 'wcgdc_store_lat' );
         $store_lng = get_option( 'wcgdc_store_lng' );
 
-        if ( ! $lat || ! $lng || ! $store_lat || ! $store_lng ) {
-            return; // No coordinates available, cannot calculate
+        if ( ! is_numeric( $lat ) || ! is_numeric( $lng ) || ! is_numeric( $store_lat ) || ! is_numeric( $store_lng ) ) {
+            return;
         }
 
         $distance_km = $this->haversine_distance( $store_lat, $store_lng, $lat, $lng );

@@ -122,13 +122,20 @@ class WCGDC_Checkout {
         $lat = isset( $_POST['lat'] ) ? sanitize_text_field( $_POST['lat'] ) : '';
         $lng = isset( $_POST['lng'] ) ? sanitize_text_field( $_POST['lng'] ) : '';
 
-        if ( $lat && $lng ) {
-            WC()->session->set( 'wcgdc_lat', $lat );
-            WC()->session->set( 'wcgdc_lng', $lng );
-            wp_send_json_success();
+        if ( ! is_numeric( $lat ) || ! is_numeric( $lng ) ) {
+            wp_send_json_error( [ 'message' => 'Coordenadas inválidas.' ] );
         }
 
-        wp_send_json_error();
+        $lat = (float) $lat;
+        $lng = (float) $lng;
+
+        if ( $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 ) {
+            wp_send_json_error( [ 'message' => 'Coordenadas fuera de rango.' ] );
+        }
+
+        WC()->session->set( 'wcgdc_lat', $lat );
+        WC()->session->set( 'wcgdc_lng', $lng );
+        wp_send_json_success();
     }
     
     public function display_order_meta( $order ) {
